@@ -1,0 +1,370 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>펫코스트 | 반려동물 병원비 미리 견적기</title>
+<style>
+:root {
+  --bg: #eef1ea;
+  --surface: #ffffff;
+  --ink: #1f2b22;
+  --ink-soft: #5b6b5c;
+  --primary: #2f4b3c;
+  --primary-soft: #7c9583;
+  --accent: #e2793d;
+  --accent-soft: #f6dcc4;
+  --line: #d8ded0;
+  --font-display: "Georgia", serif;
+  --font-body: system-ui, -apple-system, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+  --font-mono: ui-monospace, "SFMono-Regular", Menlo, monospace;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+.page {
+  min-height: 100%;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-body);
+  padding: 56px 24px 40px;
+}
+.hero { max-width: 880px; margin: 0 auto 40px; text-align: left; }
+.eyebrow {
+  display: inline-block;
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  color: var(--accent);
+  font-weight: 600;
+  margin-bottom: 10px;
+}
+.hero h1 {
+  font-family: var(--font-display);
+  font-size: clamp(36px, 6vw, 52px);
+  font-weight: 700;
+  margin: 0 0 12px;
+  color: var(--primary);
+  letter-spacing: -0.01em;
+}
+.hero .sub {
+  font-size: 16px;
+  line-height: 1.6;
+  color: var(--ink-soft);
+  max-width: 520px;
+  margin: 0;
+}
+.layout {
+  max-width: 880px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 1.15fr 1fr;
+  gap: 28px;
+  align-items: start;
+}
+@media (max-width: 760px) {
+  .layout { grid-template-columns: 1fr; }
+}
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+.field label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--primary);
+  margin-bottom: 10px;
+  letter-spacing: 0.02em;
+}
+.pill-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.pill {
+  font-family: var(--font-body);
+  font-size: 14px;
+  padding: 8px 16px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--ink-soft);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.pill:hover { border-color: var(--primary-soft); }
+.pill.active { background: var(--primary); border-color: var(--primary); color: #fff; }
+.proc-list { display: flex; flex-direction: column; gap: 8px; }
+.proc-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  text-align: left;
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  cursor: pointer;
+  font-family: var(--font-body);
+  transition: all 0.15s ease;
+}
+.proc-row:hover { border-color: var(--primary-soft); }
+.proc-row.active { border-color: var(--accent); background: var(--accent-soft); }
+.proc-check {
+  width: 18px;
+  height: 18px;
+  flex: none;
+  border-radius: 5px;
+  border: 1.5px solid var(--primary-soft);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  color: var(--primary);
+}
+.proc-row.active .proc-check { background: var(--accent); border-color: var(--accent); color: #fff; }
+.proc-text { display: flex; flex-direction: column; gap: 2px; }
+.proc-name { font-size: 14.5px; font-weight: 500; color: var(--ink); }
+.proc-desc { font-size: 12px; color: var(--ink-soft); }
+.receipt-wrap { position: sticky; top: 40px; }
+.receipt {
+  background: var(--surface);
+  border-radius: 4px;
+  padding: 32px 26px 26px;
+  box-shadow: 0 18px 40px -18px rgba(31, 43, 34, 0.35);
+  transform: rotate(0.6deg);
+  font-family: var(--font-mono);
+  position: relative;
+}
+.receipt-head { display: flex; justify-content: space-between; align-items: baseline; font-family: var(--font-display); }
+.receipt-title { font-size: 17px; font-weight: 700; color: var(--primary); }
+.receipt-date { font-size: 12px; font-family: var(--font-mono); color: var(--ink-soft); }
+.receipt-meta { margin-top: 8px; font-size: 12.5px; color: var(--ink-soft); }
+.receipt-dash { border-top: 1.5px dashed var(--line); margin: 16px 0; }
+.empty { font-size: 13px; color: var(--ink-soft); font-family: var(--font-body); }
+.receipt-line { display: flex; justify-content: space-between; gap: 12px; font-size: 13px; padding: 6px 0; color: var(--ink); }
+.line-name { color: var(--ink-soft); }
+.line-cost { font-weight: 600; white-space: nowrap; }
+.receipt-total { display: flex; justify-content: space-between; align-items: baseline; font-size: 15px; font-weight: 600; color: var(--primary); }
+.total-avg { font-size: 22px; color: var(--accent); font-weight: 600; }
+.receipt-total-range { margin-top: 4px; font-size: 12px; color: var(--ink-soft); text-align: right; }
+.disclaimer { margin-top: 20px; font-family: var(--font-body); font-size: 11px; line-height: 1.5; color: var(--ink-soft); }
+.footer { max-width: 880px; margin: 48px auto 0; font-size: 12px; color: var(--ink-soft); text-align: center; }
+</style>
+</head>
+<body>
+<div class="page">
+  <header class="hero">
+    <span class="eyebrow">동물병원비, 가기 전에 가늠해보기</span>
+    <h1>펫코스트</h1>
+    <p class="sub">진료 항목과 지역을 고르면, 병원 방문 전에 예상 비용 범위를 영수증처럼 보여드려요.</p>
+  </header>
+
+  <main class="layout">
+    <section class="panel">
+      <div class="field">
+        <label>반려동물</label>
+        <div class="pill-row" id="petTypeRow"></div>
+      </div>
+      <div class="field">
+        <label>체중대</label>
+        <div class="pill-row" id="weightRow"></div>
+      </div>
+      <div class="field">
+        <label>지역</label>
+        <div class="pill-row" id="regionRow"></div>
+      </div>
+      <div class="field">
+        <label>진료 · 시술 항목 (복수 선택)</label>
+        <div class="proc-list" id="procList"></div>
+      </div>
+    </section>
+
+    <section class="receipt-wrap">
+      <div class="receipt">
+        <div class="receipt-head">
+          <span class="receipt-title">예상 진료비 영수증</span>
+          <span class="receipt-date" id="receiptDate"></span>
+        </div>
+        <div class="receipt-meta" id="receiptMeta"></div>
+        <div class="receipt-dash"></div>
+        <div id="receiptLines"></div>
+        <div class="receipt-dash"></div>
+        <div class="receipt-total">
+          <span>예상 합계 (평균)</span>
+          <span class="total-avg" id="totalAvg">0원</span>
+        </div>
+        <div class="receipt-total-range" id="totalRange"></div>
+        <p class="disclaimer">
+          * 공개된 진료비 통계를 바탕으로 한 추정 범위이며, 실제 진료비와
+          다를 수 있습니다. 정확한 비용은 방문 병원에 문의해 주세요.
+        </p>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">펫코스트 · MVP 견적기</footer>
+</div>
+
+<script>
+// 참고: 농림축산검역본부 반려동물 진료비 실태조사 및 동물병원 비급여 진료비 공시자료를 바탕으로 한 추정 범위입니다.
+// 실제 진료비는 병원, 반려동물 상태에 따라 달라질 수 있습니다.
+
+const PET_TYPES = [
+  { id: "dog", label: "강아지" },
+  { id: "cat", label: "고양이" },
+];
+
+const WEIGHT_BANDS = {
+  dog: [
+    { id: "small", label: "소형 (~5kg)", factor: 1.0 },
+    { id: "medium", label: "중형 (5~15kg)", factor: 1.25 },
+    { id: "large", label: "대형 (15kg~)", factor: 1.6 },
+  ],
+  cat: [
+    { id: "small", label: "~4kg", factor: 1.0 },
+    { id: "large", label: "4kg~", factor: 1.15 },
+  ],
+};
+
+const REGIONS = [
+  { id: "seoul_gangnam", label: "서울 강남·서초권", factor: 1.3 },
+  { id: "seoul_etc", label: "서울 기타·수도권", factor: 1.0 },
+  { id: "metro", label: "광역시", factor: 0.9 },
+  { id: "rural", label: "지방", factor: 0.78 },
+];
+
+const PROCEDURES = [
+  { id: "checkup", label: "기본 건강검진", desc: "문진, 청진, 체온 측정 등 기본 검진", base: 15000, spread: 0.4, weightScaled: false },
+  { id: "vaccine", label: "종합백신 접종 (1회)", desc: "5종 종합백신 기준", base: 25000, spread: 0.35, weightScaled: false },
+  { id: "bloodtest", label: "혈액검사 (기본 패널)", desc: "일반 혈액검사 + 생화학검사", base: 90000, spread: 0.4, weightScaled: false },
+  { id: "scaling", label: "스케일링 (치석 제거)", desc: "마취 포함, 발치 없는 기본 스케일링", base: 280000, spread: 0.45, weightScaled: true },
+  { id: "neuter", label: "중성화 수술", desc: "암/수 평균, 입원 1일 포함", base: 260000, spread: 0.5, weightScaled: true },
+  { id: "patella", label: "슬개골탈구 수술", desc: "편측 기준, 입원·통증관리 포함", base: 950000, spread: 0.5, weightScaled: true },
+  { id: "hospitalization", label: "입원 (1일)", desc: "일반 입원실 기준", base: 85000, spread: 0.4, weightScaled: false },
+];
+
+function estimateCost(procedure, regionFactor, weightFactor) {
+  const scaled = procedure.weightScaled ? weightFactor : 1;
+  const mid = procedure.base * regionFactor * scaled;
+  const min = Math.round((mid * (1 - procedure.spread)) / 1000) * 1000;
+  const max = Math.round((mid * (1 + procedure.spread)) / 1000) * 1000;
+  const avg = Math.round(mid / 1000) * 1000;
+  return { min, max, avg };
+}
+
+const won = (n) => n.toLocaleString("ko-KR");
+
+const state = {
+  petType: "dog",
+  weightBand: WEIGHT_BANDS.dog[0].id,
+  region: REGIONS[1].id,
+  selected: new Set(["checkup"]),
+};
+
+function todayStr() {
+  const d = new Date();
+  return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, "0")}.${String(d.getDate()).padStart(2, "0")}`;
+}
+
+function render() {
+  const weightOptions = WEIGHT_BANDS[state.petType];
+
+  const petTypeRow = document.getElementById("petTypeRow");
+  petTypeRow.innerHTML = "";
+  PET_TYPES.forEach((p) => {
+    const btn = document.createElement("button");
+    btn.className = "pill" + (state.petType === p.id ? " active" : "");
+    btn.textContent = p.label;
+    btn.onclick = () => {
+      state.petType = p.id;
+      state.weightBand = WEIGHT_BANDS[p.id][0].id;
+      render();
+    };
+    petTypeRow.appendChild(btn);
+  });
+
+  const weightRow = document.getElementById("weightRow");
+  weightRow.innerHTML = "";
+  weightOptions.forEach((w) => {
+    const btn = document.createElement("button");
+    btn.className = "pill" + (state.weightBand === w.id ? " active" : "");
+    btn.textContent = w.label;
+    btn.onclick = () => { state.weightBand = w.id; render(); };
+    weightRow.appendChild(btn);
+  });
+
+  const regionRow = document.getElementById("regionRow");
+  regionRow.innerHTML = "";
+  REGIONS.forEach((r) => {
+    const btn = document.createElement("button");
+    btn.className = "pill" + (state.region === r.id ? " active" : "");
+    btn.textContent = r.label;
+    btn.onclick = () => { state.region = r.id; render(); };
+    regionRow.appendChild(btn);
+  });
+
+  const procList = document.getElementById("procList");
+  procList.innerHTML = "";
+  PROCEDURES.forEach((p) => {
+    const active = state.selected.has(p.id);
+    const btn = document.createElement("button");
+    btn.className = "proc-row" + (active ? " active" : "");
+    btn.innerHTML = `
+      <span class="proc-check">${active ? "✓" : ""}</span>
+      <span class="proc-text">
+        <span class="proc-name">${p.label}</span>
+        <span class="proc-desc">${p.desc}</span>
+      </span>`;
+    btn.onclick = () => {
+      if (state.selected.has(p.id)) state.selected.delete(p.id);
+      else state.selected.add(p.id);
+      render();
+    };
+    procList.appendChild(btn);
+  });
+
+  const regionFactor = REGIONS.find((r) => r.id === state.region)?.factor ?? 1;
+  const weightFactor = weightOptions.find((w) => w.id === state.weightBand)?.factor ?? 1;
+
+  document.getElementById("receiptDate").textContent = todayStr();
+  document.getElementById("receiptMeta").textContent =
+    `${PET_TYPES.find((p) => p.id === state.petType)?.label} · ${weightOptions.find((w) => w.id === state.weightBand)?.label} · ${REGIONS.find((r) => r.id === state.region)?.label}`;
+
+  const lineItems = PROCEDURES.filter((p) => state.selected.has(p.id)).map((p) => ({
+    ...p,
+    cost: estimateCost(p, regionFactor, weightFactor),
+  }));
+
+  const receiptLines = document.getElementById("receiptLines");
+  receiptLines.innerHTML = "";
+  if (lineItems.length === 0) {
+    receiptLines.innerHTML = `<p class="empty">항목을 하나 이상 선택해 주세요.</p>`;
+  } else {
+    lineItems.forEach((item) => {
+      const row = document.createElement("div");
+      row.className = "receipt-line";
+      row.innerHTML = `<span class="line-name">${item.label}</span><span class="line-cost">${won(item.cost.min)}원~${won(item.cost.max)}원</span>`;
+      receiptLines.appendChild(row);
+    });
+  }
+
+  const totals = lineItems.reduce(
+    (acc, item) => ({
+      min: acc.min + item.cost.min,
+      max: acc.max + item.cost.max,
+      avg: acc.avg + item.cost.avg,
+    }),
+    { min: 0, max: 0, avg: 0 }
+  );
+
+  document.getElementById("totalAvg").textContent = `${won(totals.avg)}원`;
+  document.getElementById("totalRange").textContent = `최소 ${won(totals.min)}원 ~ 최대 ${won(totals.max)}원`;
+}
+
+render();
+</script>
+</body>
+</html>
