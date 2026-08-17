@@ -182,8 +182,6 @@ export default function App() {
           </div>
         </section>
       </main>
-
-      <footer className="footer">펫코스트 · MVP 견적기</footer>
     </div>
   );
 }
