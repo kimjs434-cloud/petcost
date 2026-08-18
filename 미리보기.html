@@ -207,42 +207,27 @@ html, body { height: 100%; margin: 0; }
 </div>
 
 <script>
-// 참고: 농림축산검역본부 반려동물 진료비 실태조사 및 동물병원 비급여 진료비 공시자료를 바탕으로 한 추정 범위입니다.
-// 실제 진료비는 병원, 반려동물 상태에 따라 달라질 수 있습니다.
+// 이 파일은 빌드 과정 없이 브라우저에서 바로 열어보는 용도라,
+// Supabase JS SDK 대신 REST(PostgREST) 엔드포인트를 fetch로 직접 호출합니다.
+// 아래 두 값을 Supabase 프로젝트 설정 → API 메뉴에서 복사해 채워주세요.
+// anon/public 키는 RLS로 보호되는 "공개용" 키라 이 파일에 그대로 적어도 안전합니다.
+// (service_role 키는 절대 여기 넣지 마세요.)
+const SUPABASE_URL = "https://YOUR_PROJECT_REF.supabase.co";
+const SUPABASE_ANON_KEY = "YOUR_ANON_PUBLIC_KEY";
 
-const PET_TYPES = [
-  { id: "dog", label: "강아지" },
-  { id: "cat", label: "고양이" },
-];
-
-const WEIGHT_BANDS = {
-  dog: [
-    { id: "small", label: "소형 (~5kg)", factor: 1.0 },
-    { id: "medium", label: "중형 (5~15kg)", factor: 1.25 },
-    { id: "large", label: "대형 (15kg~)", factor: 1.6 },
-  ],
-  cat: [
-    { id: "small", label: "~4kg", factor: 1.0 },
-    { id: "large", label: "4kg~", factor: 1.15 },
-  ],
-};
-
-const REGIONS = [
-  { id: "seoul_gangnam", label: "서울 강남·서초권", factor: 1.3 },
-  { id: "seoul_etc", label: "서울 기타·수도권", factor: 1.0 },
-  { id: "metro", label: "광역시", factor: 0.9 },
-  { id: "rural", label: "지방", factor: 0.78 },
-];
-
-const PROCEDURES = [
-  { id: "checkup", label: "기본 건강검진", desc: "문진, 청진, 체온 측정 등 기본 검진", base: 15000, spread: 0.4, weightScaled: false },
-  { id: "vaccine", label: "종합백신 접종 (1회)", desc: "5종 종합백신 기준", base: 25000, spread: 0.35, weightScaled: false },
-  { id: "bloodtest", label: "혈액검사 (기본 패널)", desc: "일반 혈액검사 + 생화학검사", base: 90000, spread: 0.4, weightScaled: false },
-  { id: "scaling", label: "스케일링 (치석 제거)", desc: "마취 포함, 발치 없는 기본 스케일링", base: 280000, spread: 0.45, weightScaled: true },
-  { id: "neuter", label: "중성화 수술", desc: "암/수 평균, 입원 1일 포함", base: 260000, spread: 0.5, weightScaled: true },
-  { id: "patella", label: "슬개골탈구 수술", desc: "편측 기준, 입원·통증관리 포함", base: 950000, spread: 0.5, weightScaled: true },
-  { id: "hospitalization", label: "입원 (1일)", desc: "일반 입원실 기준", base: 85000, spread: 0.4, weightScaled: false },
-];
+async function fetchTable(table, order = "sort_order") {
+  const res = await fetch(
+    `${SUPABASE_URL}/rest/v1/${table}?select=*&order=${order}.asc`,
+    {
+      headers: {
+        apikey: SUPABASE_ANON_KEY,
+        Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+      },
+    }
+  );
+  if (!res.ok) throw new Error(`${table} 조회 실패 (${res.status})`);
+  return res.json();
+}
 
 function estimateCost(procedure, regionFactor, weightFactor) {
   const scaled = procedure.weightScaled ? weightFactor : 1;
@@ -255,11 +240,16 @@ function estimateCost(procedure, regionFactor, weightFactor) {
 
 const won = (n) => n.toLocaleString("ko-KR");
 
+let PET_TYPES = [];
+let WEIGHT_BANDS = {};
+let REGIONS = [];
+let PROCEDURES = [];
+
 const state = {
-  petType: "dog",
-  weightBand: WEIGHT_BANDS.dog[0].id,
-  region: REGIONS[1].id,
-  selected: new Set(["checkup"]),
+  petType: null,
+  weightBand: null,
+  region: null,
+  selected: new Set(),
 };
 
 function todayStr() {
@@ -267,8 +257,55 @@ function todayStr() {
   return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, "0")}.${String(d.getDate()).padStart(2, "0")}`;
 }
 
+async function boot() {
+  const root = document.querySelector(".page");
+  try {
+    const [petTypesRows, weightBandRows, regionRows, procedureRows] =
+      await Promise.all([
+        fetchTable("pet_types"),
+        fetchTable("weight_bands"),
+        fetchTable("regions"),
+        fetchTable("procedures"),
+      ]);
+
+    PET_TYPES = petTypesRows.map((r) => ({ id: r.id, label: r.label }));
+    WEIGHT_BANDS = weightBandRows.reduce((acc, r) => {
+      const list = acc[r.pet_type_id] ?? [];
+      list.push({ id: r.id, label: r.label, factor: r.factor });
+      acc[r.pet_type_id] = list;
+      return acc;
+    }, {});
+    REGIONS = regionRows.map((r) => ({ id: r.id, label: r.label, factor: r.factor }));
+    PROCEDURES = procedureRows.map((r) => ({
+      id: r.id,
+      label: r.label,
+      desc: r.description,
+      base: r.base,
+      spread: r.spread,
+      weightScaled: r.weight_scaled,
+    }));
+
+    state.petType = PET_TYPES[0]?.id ?? null;
+    state.weightBand = WEIGHT_BANDS[state.petType]?.[0]?.id ?? null;
+    state.region =
+      REGIONS.find((r) => r.id === "seoul_etc")?.id ?? REGIONS[0]?.id ?? null;
+    state.selected = new Set(
+      PROCEDURES.some((p) => p.id === "checkup")
+        ? ["checkup"]
+        : PROCEDURES[0]
+        ? [PROCEDURES[0].id]
+        : []
+    );
+
+    render();
+  } catch (err) {
+    console.error(err);
+    root.innerHTML = `<p class="empty">데이터를 불러오지 못했어요. 이 파일 상단의 SUPABASE_URL / SUPABASE_ANON_KEY 값을 확인해 주세요.</p>`;
+  }
+}
+
 function render() {
-  const weightOptions = WEIGHT_BANDS[state.petType];
+  const weightOptions = WEIGHT_BANDS[state.petType] ?? [];
 
   const petTypeRow = document.getElementById("petTypeRow");
   petTypeRow.innerHTML = "";
@@ -362,7 +399,7 @@ function render() {
   document.getElementById("totalRange").textContent = `최소 ${won(totals.min)}원 ~ 최대 ${won(totals.max)}원`;
 }
 
-render();
+boot();
 </script>
 </body>
 </html>

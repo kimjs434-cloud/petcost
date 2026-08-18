@@ -1,9 +1,9 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import {
-  PET_TYPES,
-  WEIGHT_BANDS,
-  REGIONS,
-  PROCEDURES,
+  fetchPetTypes,
+  fetchWeightBands,
+  fetchRegions,
+  fetchProcedures,
   estimateCost,
 } from "./data";
 import "./App.css";
@@ -17,34 +17,92 @@ function todayStr() {
 }
 
 export default function App() {
-  const [petType, setPetType] = useState("dog");
-  const [weightBand, setWeightBand] = useState(WEIGHT_BANDS.dog[0].id);
-  const [region, setRegion] = useState(REGIONS[1].id);
-  const [selected, setSelected] = useState(["checkup"]);
+  const [status, setStatus] = useState("loading"); // loading | error | ready
+  const [petTypes, setPetTypes] = useState([]);
+  const [weightBands, setWeightBands] = useState({});
+  const [regions, setRegions] = useState([]);
+  const [procedures, setProcedures] = useState([]);
 
-  const weightOptions = WEIGHT_BANDS[petType];
+  const [petType, setPetType] = useState(null);
+  const [weightBand, setWeightBand] = useState(null);
+  const [region, setRegion] = useState(null);
+  const [selected, setSelected] = useState(new Set());
+
+  useEffect(() => {
+    let cancelled = false;
+
+    Promise.all([
+      fetchPetTypes(),
+      fetchWeightBands(),
+      fetchRegions(),
+      fetchProcedures(),
+    ])
+      .then(([petTypesData, weightBandsData, regionsData, proceduresData]) => {
+        if (cancelled) return;
+        setPetTypes(petTypesData);
+        setWeightBands(weightBandsData);
+        setRegions(regionsData);
+        setProcedures(proceduresData);
+
+        const firstPetType = petTypesData[0]?.id ?? null;
+        setPetType(firstPetType);
+        setWeightBand(weightBandsData[firstPetType]?.[0]?.id ?? null);
+        setRegion(
+          regionsData.find((r) => r.id === "seoul_etc")?.id ??
+            regionsData[0]?.id ??
+            null
+        );
+        setSelected(
+          new Set(
+            proceduresData.some((p) => p.id === "checkup")
+              ? ["checkup"]
+              : proceduresData[0]
+              ? [proceduresData[0].id]
+              : []
+          )
+        );
+
+        setStatus("ready");
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        console.error(err);
+        setStatus("error");
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const weightOptions = weightBands[petType] ?? [];
 
   function handlePetType(id) {
     setPetType(id);
-    setWeightBand(WEIGHT_BANDS[id][0].id);
+    setWeightBand(weightBands[id]?.[0]?.id ?? null);
   }
 
   function toggleProcedure(id) {
-    setSelected((prev) =>
-      prev.includes(id) ? prev.filter((p) => p !== id) : [...prev, id]
-    );
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
   }
 
-  const regionFactor = REGIONS.find((r) => r.id === region)?.factor ?? 1;
+  const regionFactor = regions.find((r) => r.id === region)?.factor ?? 1;
   const weightFactor =
     weightOptions.find((w) => w.id === weightBand)?.factor ?? 1;
 
   const lineItems = useMemo(() => {
-    return PROCEDURES.filter((p) => selected.includes(p.id)).map((p) => ({
-      ...p,
-      cost: estimateCost(p, regionFactor, weightFactor),
-    }));
-  }, [selected, regionFactor, weightFactor]);
+    return procedures
+      .filter((p) => selected.has(p.id))
+      .map((p) => ({
+        ...p,
+        cost: estimateCost(p, regionFactor, weightFactor),
+      }));
+  }, [procedures, selected, regionFactor, weightFactor]);
 
   const totals = lineItems.reduce(
     (acc, item) => ({
@@ -56,6 +114,25 @@ export default function App() {
   );
 
   const won = (n) => n.toLocaleString("ko-KR");
+
+  if (status === "loading") {
+    return (
+      <div className="page">
+        <p className="empty">데이터를 불러오는 중이에요…</p>
+      </div>
+    );
+  }
+
+  if (status === "error") {
+    return (
+      <div className="page">
+        <p className="empty">
+          데이터를 불러오지 못했어요. Supabase 연결 정보(.env)를 확인해
+          주세요.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="page">
@@ -73,7 +150,7 @@ export default function App() {
           <div className="field">
             <label>반려동물</label>
             <div className="pill-row">
-              {PET_TYPES.map((p) => (
+              {petTypes.map((p) => (
                 <button
                   key={p.id}
                   className={`pill ${petType === p.id ? "active" : ""}`}
@@ -103,7 +180,7 @@ export default function App() {
           <div className="field">
             <label>지역</label>
             <div className="pill-row">
-              {REGIONS.map((r) => (
+              {regions.map((r) => (
                 <button
                   key={r.id}
                   className={`pill ${region === r.id ? "active" : ""}`}
@@ -118,16 +195,16 @@ export default function App() {
           <div className="field">
             <label>진료 · 시술 항목 (복수 선택)</label>
             <div className="proc-list">
-              {PROCEDURES.map((p) => (
+              {procedures.map((p) => (
                 <button
                   key={p.id}
                   className={`proc-row ${
-                    selected.includes(p.id) ? "active" : ""
+                    selected.has(p.id) ? "active" : ""
                   }`}
                   onClick={() => toggleProcedure(p.id)}
                 >
                   <span className="proc-check">
-                    {selected.includes(p.id) ? "✓" : ""}
+                    {selected.has(p.id) ? "✓" : ""}
                   </span>
                   <span className="proc-text">
                     <span className="proc-name">{p.label}</span>
@@ -146,9 +223,9 @@ export default function App() {
               <span className="receipt-date">{todayStr()}</span>
             </div>
             <div className="receipt-meta">
-              {PET_TYPES.find((p) => p.id === petType)?.label} ·{" "}
+              {petTypes.find((p) => p.id === petType)?.label} ·{" "}
               {weightOptions.find((w) => w.id === weightBand)?.label} ·{" "}
-              {REGIONS.find((r) => r.id === region)?.label}
+              {regions.find((r) => r.id === region)?.label}
             </div>
             <div className="receipt-dash" />
 
